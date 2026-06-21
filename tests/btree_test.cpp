@@ -43,3 +43,18 @@ TEST_F(BTreeTest, CreateEmpty) {
     EXPECT_FALSE(db.contains(key));
     EXPECT_EQ(db.get(key), std::nullopt);
 }
+
+TEST_F(BTreeTest, PutAndGet) {
+    BTreeDB db(TEST_DB);
+    char k[KEY_SIZE], v[VALUE_SIZE];
+    make_key(k, "key1");
+    make_value(v, "value1");
+
+    auto old = db.put(k, v);
+    EXPECT_EQ(old, std::nullopt);
+    EXPECT_TRUE(db.contains(k));
+
+    auto result = db.get(k);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(trim_value(*result), "value1");
+}
