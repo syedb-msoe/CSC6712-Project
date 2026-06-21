@@ -208,18 +208,32 @@ void BTreeDB::insert_nonfull(uint32_t node_index, const char key[KEY_SIZE], cons
 std::optional<std::string> BTreeDB::put(const char key[KEY_SIZE], const char value[VALUE_SIZE]) {
     HeaderPage h = read_header();
 
-    uint32_t root = allocate_node();
-    NodePage np{};
-    np.node.num_keys = 1;
-    np.node.parent_index = 0;
-    std::memcpy(np.node.keys[0], key, KEY_SIZE);
-    std::memcpy(np.node.values[0], value, VALUE_SIZE);
-    write_node(root, np);
+    if (h.root_index != 0) {
+        auto r = search(h.root_index, key);
+        if (r.key_index >= 0) {
+            NodePage np = read_node(r.page_index);
+            std::string old_val(np.node.values[r.key_index], VALUE_SIZE);
+            std::memcpy(np.node.values[r.key_index], value, VALUE_SIZE);
+            write_node(r.page_index, np);
+            sync();
+            return old_val;
+        }
+    }
 
-    h.root_index = root;
-    write_header(h);
-    sync();
-    return std::nullopt;
+    if (h.root_index == 0) {
+        uint32_t root = allocate_node();
+        NodePage np{};
+        np.node.num_keys = 1;
+        np.node.parent_index = 0;
+        std::memcpy(np.node.keys[0], key, KEY_SIZE);
+        std::memcpy(np.node.values[0], value, VALUE_SIZE);
+        write_node(root, np);
+
+        h.root_index = root;
+        write_header(h);
+        sync();
+        return std::nullopt;
+    }
 
     NodePage root_np = read_node(h.root_index);
     if (root_np.node.num_keys == MAX_KEYS) {
