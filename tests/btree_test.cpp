@@ -160,17 +160,15 @@ TEST_F(BTreeTest, LargeScaleBenchmark) {
 
     for (int i = 0; i < N; i++) {
         char k[KEY_SIZE], v[VALUE_SIZE];
-        char num[16];
-        make_key(k, std::string("big") + num);
-        make_value(v, std::string("dat") + num);
+        make_key(k, std::string("big") + std::to_string(i));
+        make_value(v, std::string("dat") + std::to_string(i));
         db.put(k, v);
     }
 
     for (int i = 0; i < N; i++) {
         char k[KEY_SIZE];
-        char num[16];
-        make_key(k, std::string("big") + num);
+        make_key(k, std::string("big") + std::to_string(i));
         auto value = db.get(k);
-        EXPECT_EQ(trim_value(*value), "dat" + std::string(num));
+        EXPECT_EQ(trim_value(*value), "dat" + std::to_string(i));
     }
 }
