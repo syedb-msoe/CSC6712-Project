@@ -170,6 +170,7 @@ TEST_F(BTreeTest, LargeScaleBenchmark) {
         char k[KEY_SIZE];
         char num[16];
         make_key(k, std::string("big") + num);
-        EXPECT_TRUE(db.contains(k));
+        auto value = db.get(k);
+        EXPECT_EQ(trim_value(*value), "dat" + std::string(num));
     }
 }
