@@ -68,4 +68,5 @@ vcpkg_installed/
 Testing/
 .cache/
 
-database_storage/
+database_storage/*
+!database_storage/.gitkeep
