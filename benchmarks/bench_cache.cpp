@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-static const std::string DB_PREFIX = "/tmp/bench_cache_";
+static const std::string DB_PREFIX = "../database_storage/bench_cache_";
 static const int NUM_KEYS = 100000;
 static const int READS_PER_TRIAL = 10;
 

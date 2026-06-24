@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 
-static const std::string BENCH_DB = "/tmp/bench_rw.db";
+static const std::string BENCH_DB = "../database_storage/bench_rw.db";
 
 static void make_key(char buf[KEY_SIZE], uint64_t id) {
     std::memset(buf, 0, KEY_SIZE);

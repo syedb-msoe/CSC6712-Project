@@ -7,7 +7,7 @@
 #include <algorithm>
 #include <random>
 
-static const std::string TEST_DB = "/tmp/btree_test.db";
+static const std::string TEST_DB = "../database_storage/btree_test.db";
 
 static void make_key(char buf[KEY_SIZE], const std::string& s) {
     std::memset(buf, 0, KEY_SIZE);
