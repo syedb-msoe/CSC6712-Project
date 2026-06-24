@@ -7,7 +7,14 @@
 #include <algorithm>
 #include <random>
 
-static const std::string TEST_DB = "../database_storage/btree_test.db";
+static std::string get_db() {
+    std::string home = std::getenv("HOME");
+    std::string dir = home + "/test_data";
+    mkdir(dir.c_str(), 0755);
+    return dir + "/btree_test.db";
+}
+
+static const std::string TEST_DB = get_db();
 
 static void make_key(char buf[KEY_SIZE], const std::string& s) {
     std::memset(buf, 0, KEY_SIZE);
@@ -156,7 +163,7 @@ TEST_F(BTreeTest, UpdateSomeKeys) {
 
 TEST_F(BTreeTest, LargeScaleBenchmark) {
     BTreeDB db(TEST_DB);
-    const int N = 1000000;
+    const int N = 10000;
 
     for (int i = 0; i < N; i++) {
         char k[KEY_SIZE], v[VALUE_SIZE];

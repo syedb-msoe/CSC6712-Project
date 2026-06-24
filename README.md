@@ -13,7 +13,7 @@ cd build && ctest --output-on-failure
 There are two benchmark scripts that can be called, these can be called from the build folder
 - bench_read_write
   - Does 3 sets of runs for 100, 1000, 10000, 100000, 1000000
-  - Logs the results
+  - prints the results
 - bench_read_write
   - takes in additional arguments
     - <setup|read> <num_trials>
@@ -22,4 +22,4 @@ There are two benchmark scripts that can be called, these can be called from the
     - read -> reads data from databases from setup
     - num_trials -> number of seperate database connections
   - Call in setup mode, restart, and then call read mode to benchmark cold start reads
-  - Performs 10 reads per trial and logs the results
+  - Performs 10 reads per trial and prints the results

@@ -7,8 +7,17 @@
 #include <random>
 #include <string>
 #include <vector>
+#include <cstdlib>
+#include <sys/stat.h>
 
-static const std::string BENCH_DB = "../database_storage/bench_rw.db";
+static std::string get_bench_db() {
+    std::string home = std::getenv("HOME");
+    std::string dir = home + "/bench_data";
+    mkdir(dir.c_str(), 0755);
+    return dir + "/bench_rw.db";
+}
+
+static const std::string BENCH_DB = get_bench_db();
 
 static void make_key(char buf[KEY_SIZE], uint64_t id) {
     std::memset(buf, 0, KEY_SIZE);
