@@ -20,3 +20,8 @@ add_executable(btree_test tests/btree_test.cpp)
 target_link_libraries(btree_test btree_storage GTest::gtest_main)
 include(GoogleTest)
 gtest_discover_tests(btree_test)
+
+add_executable(bench_read_write benchmarks/bench_read_write.cpp)
+target_link_libraries(bench_read_write btree_storage)
+add_executable(bench_cache benchmarks/bench_cache.cpp)
+target_link_libraries(bench_cache btree_storage)
