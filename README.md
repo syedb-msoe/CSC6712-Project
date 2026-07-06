@@ -37,3 +37,6 @@ There are two benchmark scripts that can be called, these can be called from the
   - Performs 10 reads per trial and prints the results
 
 benchmark database files are stored in your home directory under the `bench_data` folder
+
+## Running TCP Server/Client
+instructions can be found here: [docs/PROTOCOL.md](docs/PROTOCOL.md)
