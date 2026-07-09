@@ -6,6 +6,19 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 add_library(btree_storage src/btree.cpp)
 target_include_directories(btree_storage PUBLIC include)
 
+add_library(btree_server src/btree_server.cpp src)
+target_link_libraries(btree_server PUBLIC btree_storage)
+target_include_directories(btree_server PUBLIC include)
+
+add_library(client src/client.cpp)
+target_include_directories(client PUBLIC include)
+
+add_executable(kv_server src/server_main.cpp)
+target_link_libraries(kv_server btree_server)
+
+add_executable(kv_cli src/client_main.cpp)
+target_link_libraries(kv_cli client)
+
 # Tests
 include(FetchContent)
 FetchContent_Declare(
@@ -18,8 +31,13 @@ FetchContent_MakeAvailable(googletest)
 enable_testing()
 add_executable(btree_test tests/btree_test.cpp)
 target_link_libraries(btree_test btree_storage GTest::gtest_main)
+
+add_executable(server_test tests/server_test.cpp)
+target_link_libraries(server_test btree_server client GTest::gtest_main)
+
 include(GoogleTest)
 gtest_discover_tests(btree_test)
+gtest_discover_tests(server_test)
 
 add_executable(bench_read_write benchmarks/bench_read_write.cpp)
 target_link_libraries(bench_read_write btree_storage)
