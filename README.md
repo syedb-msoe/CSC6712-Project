@@ -46,6 +46,7 @@ Protocol documentation can be found here: [docs/PROTOCOL.md](docs/PROTOCOL.md)
      - `-h` or `--help` will list all arguments
      - `-p <number>` or `--port <number>` will allow you to set the port (defaults to 5555)
      - `-d <path>` or `--db <path>` will allow you to set the database file path (defaults to default.db)
+     - `-w <path>` or `--wal <path>` will allow you to set the write ahead log path (defaults to default.wal)
      - `-v` or `--versbose` will enable verbose logging
 - Clients can be spun up by running `./db_client` in the `build` folder
   - Takes in a variety of arguments

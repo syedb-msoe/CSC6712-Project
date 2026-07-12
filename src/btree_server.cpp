@@ -26,12 +26,17 @@ bool valid_token(const std::string& s) {
     return !s.empty() && s.size() <= protocol::MAX_TOKEN;
 }
 
-BTreeServer::BTreeServer(const std::string& db_path)
-    : db_(db_path) {
+BTreeServer::BTreeServer(const std::string& db_path, const std::string& wal_path)
+    : db_(db_path), wal_(wal_path) {
     if (pipe(pipe_fds_) != 0)
         throw std::runtime_error("Failed to create wake pipe");
     set_nonblocking(pipe_fds_[0]);
     set_nonblocking(pipe_fds_[1]);
+
+    uint64_t max_txn = Wal::recover(wal_path, db_);
+    next_txn_id_ = max_txn + 1;
+    wal_.checkpoint();
+    log("Recovery complete; next txn id = " + std::to_string(next_txn_id_));
 }
 
 BTreeServer::~BTreeServer() {
@@ -240,6 +245,13 @@ void BTreeServer::flush_writable(Connection& c) {
 
 void BTreeServer::close_connection(int fd) {
     auto it = conns_.find(fd);
+
+    Connection& c = *it->second;
+    if (c.in_txn) {
+        wal_.log_abort(c.txn_id);
+        end_transaction(c);
+        if (active_txn_count_ == 0) wal_.checkpoint();
+    }
     close(fd);
     log("Closed connection fd=" + std::to_string(fd));
     conns_.erase(it);
@@ -250,6 +262,13 @@ std::string BTreeServer::handle_request(Connection& c, const protocol::Request& 
         case protocol::Command::PUT:      return do_put(c, req);
         case protocol::Command::GET:      return do_get(c, req);
         case protocol::Command::CONTAINS: return do_contains(c, req);
+        case protocol::Command::BEGIN:    return do_begin(c, req);
+        case protocol::Command::COMMIT:   return do_commit(c);
+        case protocol::Command::ABORT:    return do_abort(c);
+        case protocol::Command::SHUTDOWN:
+            log("SHUTDOWN requested by fd=" + std::to_string(c.fd));
+            shutting_down_ = true;
+            return "OK SHUTTING_DOWN";
         case protocol::Command::UNKNOWN:
         default:
             return "ERR PROTOCOL";
@@ -257,33 +276,155 @@ std::string BTreeServer::handle_request(Connection& c, const protocol::Request& 
 }
 
 std::string BTreeServer::do_put(Connection& c, const protocol::Request& req) {
-    (void)c;
     if (req.args.size() != 2) return "ERR PROTOCOL";
     const std::string& key = req.args[0];
     const std::string& value = req.args[1];
     if (!valid_token(key) || !valid_token(value)) return "ERR PROTOCOL";
 
+    if (c.in_txn) {
+        if (txn_expired(c)) return "ERR TXN_EXPIRED";
+        if (std::find(c.locked_keys.begin(), c.locked_keys.end(), key) ==
+            c.locked_keys.end())
+            return "ERR KEY_NOT_LOCKED";
+
+        wal_.log_write(c.txn_id, key, value);
+
+        std::string prev;
+        auto bit = c.write_buf.find(key);
+        if (bit != c.write_buf.end()) {
+            prev = bit->second;
+        } else {
+            auto disk = db_get(key);
+            if (!disk) {
+                c.write_buf[key] = value;
+                return "OK NULL";
+            }
+            prev = *disk;
+        }
+        c.write_buf[key] = value;
+        return "OK " + prev;
+    }
+
+    if (key_locked_by_other(key, c.fd)) return "ERR KEY_LOCKED";
     auto old = db_put(key, value);
     return old ? "OK " + *old : "OK NULL";
 }
 
 std::string BTreeServer::do_get(Connection& c, const protocol::Request& req) {
-    (void)c;
     if (req.args.size() != 1) return "ERR PROTOCOL";
     const std::string& key = req.args[0];
     if (!valid_token(key)) return "ERR PROTOCOL";
 
+    if (c.in_txn) {
+        if (txn_expired(c)) return "ERR TXN_EXPIRED";
+        if (std::find(c.locked_keys.begin(), c.locked_keys.end(), key) ==
+            c.locked_keys.end())
+            return "ERR KEY_NOT_LOCKED";
+
+        auto bit = c.write_buf.find(key);
+        if (bit != c.write_buf.end()) return "VALUE " + bit->second;
+        auto disk = db_get(key);
+        return disk ? "VALUE " + *disk : "NULL";
+    }
+
+    if (key_locked_by_other(key, c.fd)) return "ERR KEY_LOCKED";
     auto disk = db_get(key);
     return disk ? "VALUE " + *disk : "NULL";
 }
 
 std::string BTreeServer::do_contains(Connection& c, const protocol::Request& req) {
-    (void)c;
     if (req.args.size() != 1) return "ERR PROTOCOL";
     const std::string& key = req.args[0];
     if (!valid_token(key)) return "ERR PROTOCOL";
 
+    if (c.in_txn) {
+        if (txn_expired(c)) return "ERR TXN_EXPIRED";
+        if (std::find(c.locked_keys.begin(), c.locked_keys.end(), key) ==
+            c.locked_keys.end())
+            return "ERR KEY_NOT_LOCKED";
+
+        if (c.write_buf.find(key) != c.write_buf.end()) return "TRUE";
+        return db_contains(key) ? "TRUE" : "FALSE";
+    }
+
+    if (key_locked_by_other(key, c.fd)) return "ERR KEY_LOCKED";
     return db_contains(key) ? "TRUE" : "FALSE";
+}
+
+std::string BTreeServer::do_begin(Connection& c, const protocol::Request& req) {
+    if (c.in_txn) return "ERR TXN_ACTIVE";
+    if (req.args.empty()) return "ERR PROTOCOL";
+    for (const std::string& k : req.args)
+        if (!valid_token(k)) return "ERR PROTOCOL";
+
+    for (const std::string& k : req.args)
+        if (key_locked_by_other(k, c.fd)) return "ERR LOCK_FAILED";
+
+    c.in_txn = true;
+    c.txn_id = next_txn_id_++;
+    c.locked_keys = req.args;
+    c.write_buf.clear();
+    c.expires_at = std::chrono::system_clock::now() +
+                   std::chrono::milliseconds(txn_timeout_ms_);
+    for (const std::string& k : c.locked_keys) locks_[k] = c.fd;
+    active_txn_count_++;
+
+    wal_.log_begin(c.txn_id, c.locked_keys);
+
+    long expires_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                          c.expires_at.time_since_epoch())
+                          .count();
+    log("BEGIN txn=" + std::to_string(c.txn_id) + " fd=" + std::to_string(c.fd));
+    return "OK " + std::to_string(expires_ms);
+}
+
+std::string BTreeServer::do_commit(Connection& c) {
+    if (!c.in_txn) return "ERR NO_TXN";
+    if (txn_expired(c)) return "ERR TXN_EXPIRED";
+    if (c.write_buf.empty()) return "ERR NO_WRITES";
+
+    wal_.log_commit(c.txn_id);
+    for (const auto& kv : c.write_buf) db_put(kv.first, kv.second);
+
+    uint64_t id = c.txn_id;
+    end_transaction(c);
+    if (active_txn_count_ == 0) wal_.checkpoint();
+    log("COMMIT txn=" + std::to_string(id) + " fd=" + std::to_string(c.fd));
+    return "OK";
+}
+
+std::string BTreeServer::do_abort(Connection& c) {
+    if (!c.in_txn) return "ERR NO_TXN";
+    uint64_t id = c.txn_id;
+    wal_.log_abort(c.txn_id);
+    end_transaction(c);
+    if (active_txn_count_ == 0) wal_.checkpoint();
+    log("ABORT txn=" + std::to_string(id) + " fd=" + std::to_string(c.fd));
+    return "OK";
+}
+
+bool BTreeServer::key_locked_by_other(const std::string& key, int fd) const {
+    auto it = locks_.find(key);
+    return it != locks_.end() && it->second != fd;
+}
+
+void BTreeServer::release_locks(Connection& c) {
+    for (const std::string& k : c.locked_keys) {
+        auto it = locks_.find(k);
+        if (it != locks_.end() && it->second == c.fd) locks_.erase(it);
+    }
+    c.locked_keys.clear();
+}
+
+bool BTreeServer::txn_expired(const Connection& c) const {
+    return std::chrono::system_clock::now() > c.expires_at;
+}
+
+void BTreeServer::end_transaction(Connection& c) {
+    release_locks(c);
+    c.write_buf.clear();
+    c.in_txn = false;
+    if (active_txn_count_ > 0) active_txn_count_--;
 }
 
 bool BTreeServer::db_contains(const std::string& key) {

@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 add_library(btree_storage src/btree.cpp)
 target_include_directories(btree_storage PUBLIC include)
 
-add_library(btree_server src/btree_server.cpp src)
+add_library(btree_server src/btree_server.cpp src/wal.cpp)
 target_link_libraries(btree_server PUBLIC btree_storage)
 target_include_directories(btree_server PUBLIC include)
 

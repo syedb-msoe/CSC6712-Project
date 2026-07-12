@@ -21,6 +21,10 @@ public:
     std::string put(const std::string& key, const std::string& value);
     std::string get(const std::string& key);
     std::string contains(const std::string& key);
+    std::string begin(const std::vector<std::string>& keys);
+    std::string commit();
+    std::string abort();
+    std::string shutdown();
 
 private:
     int fd_ = -1;

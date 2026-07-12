@@ -91,3 +91,14 @@ std::string Client::get(const std::string& key) {
 std::string Client::contains(const std::string& key) {
     return command("CONTAINS " + key);
 }
+
+std::string Client::begin(const std::vector<std::string>& keys) {
+    std::ostringstream os;
+    os << "BEGIN";
+    for (const std::string& k : keys) os << ' ' << k;
+    return command(os.str());
+}
+
+std::string Client::commit() { return command("COMMIT"); }
+std::string Client::abort() { return command("ABORT"); }
+std::string Client::shutdown() { return command("SHUTDOWN"); }

@@ -27,10 +27,12 @@ public:
     explicit ServerWrapper() {
         int id = global_counter.fetch_add(1);
         db_ = get_directory() + "/server_test_data" + std::to_string(id) + ".db";
+        wal_ = get_directory() + "/server_test_data" + std::to_string(id) + ".wal";
         std::remove(db_.c_str());
+        std::remove(wal_.c_str());
         BTreeDB::create(db_);
 
-        server_ = std::make_unique<BTreeServer>(db_);
+        server_ = std::make_unique<BTreeServer>(db_, wal_);
         EXPECT_TRUE(server_->listen_on(0));
         port_ = server_->bound_port();
         thread_ = std::thread([this] { server_->run(); });
@@ -39,6 +41,7 @@ public:
     ~ServerWrapper() {
         stop();
         std::remove(db_.c_str());
+        std::remove(wal_.c_str());
     }
 
     void stop() {
@@ -54,6 +57,7 @@ public:
 
 private:
     std::string db_;
+    std::string wal_;
     uint16_t port_ = 0;
     std::unique_ptr<BTreeServer> server_;
     std::thread thread_;

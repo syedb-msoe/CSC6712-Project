@@ -19,6 +19,7 @@ void usage(const char* prog) {
     std::cerr << "Usage: " << prog << " [options]\n"
               << "  -p, --port <port>        TCP port to listen on (default 5555)\n"
               << "  -d, --db <path>          B-tree database file (default default.db)\n"
+              << "  -w, --wal <path>         write-ahead log file (default default.wal)\n"
               << "  -v, --verbose            enable verbose logging\n"
               << "  -h, --help               show this help\n";
 }
@@ -26,11 +27,13 @@ void usage(const char* prog) {
 int main(int argc, char* argv[]) {
     uint16_t port = 5555;
     std::string db_path = "default.db";
+    std::string wal_path = "default.wal";
     bool verbose = false;
 
     static struct option long_opts[] = {
         {"port", required_argument, nullptr, 'p'},
         {"db", required_argument, nullptr, 'd'},
+        {"wal", required_argument, nullptr, 'w'},
         {"verbose", no_argument, nullptr, 'v'},
         {"help", no_argument, nullptr, 'h'},
         {nullptr, 0, nullptr, 0},
@@ -41,6 +44,7 @@ int main(int argc, char* argv[]) {
         switch (opt) {
             case 'p': port = static_cast<uint16_t>(std::atoi(optarg)); break;
             case 'd': db_path = optarg; break;
+            case 'w': wal_path = optarg; break;
             case 'v': verbose = true; break;
             case 'h': usage(argv[0]); return 0;
             default: usage(argv[0]); return 1;
@@ -56,7 +60,7 @@ int main(int argc, char* argv[]) {
     }
 
     try {
-        BTreeServer server(db_path);
+        BTreeServer server(db_path, wal_path);
         server.set_verbose(verbose);
 
         if (!server.listen_on(port)) {
@@ -70,7 +74,7 @@ int main(int argc, char* argv[]) {
         signal(SIGPIPE, SIG_IGN);
 
         std::cerr << "B-tree server listening on port " << server.bound_port()
-                  << " (db=" << db_path << ")" << std::endl;
+                  << " (db=" << db_path << ", wal=" << wal_path << ")" << std::endl;
 
         server.run();
         std::cerr << "Server shut down cleanly." << std::endl;
