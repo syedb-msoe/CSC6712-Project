@@ -39,4 +39,17 @@ There are two benchmark scripts that can be called, these can be called from the
 benchmark database files are stored in your home directory under the `bench_data` folder
 
 ## Running TCP Server/Client
-instructions can be found here: [docs/PROTOCOL.md](docs/PROTOCOL.md)
+Protocol documentation can be found here: [docs/PROTOCOL.md](docs/PROTOCOL.md)
+
+- You can start a server by running `./db_server` in the `build` folder
+  - Takes in a variety of arguments
+     - `-h` or `--help` will list all arguments
+     - `-p <number>` or `--port <number>` will allow you to set the port (defaults to 5555)
+     - `-d <path>` or `--db <path>` will allow you to set the database file path (defaults to default.db)
+     - `-v` or `--versbose` will enable verbose logging
+- Clients can be spun up by running `./db_client` in the `build` folder
+  - Takes in a variety of arguments
+     - `-h` or `--help` will list all arguments
+     - `-H` or `--host <ip>` will allow you to set the host ip (defaults to localhost)
+     - `-p <number>` or `--port <number>` will allow you to set the port (defaults to 5555)
+     - `-d` or `--debug` will return the raw requests/responses for debugging purposes

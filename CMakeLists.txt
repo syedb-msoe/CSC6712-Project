@@ -13,11 +13,11 @@ target_include_directories(btree_server PUBLIC include)
 add_library(client src/client.cpp)
 target_include_directories(client PUBLIC include)
 
-add_executable(kv_server src/server_main.cpp)
-target_link_libraries(kv_server btree_server)
+add_executable(db_server src/server_main.cpp)
+target_link_libraries(db_server btree_server)
 
-add_executable(kv_cli src/client_main.cpp)
-target_link_libraries(kv_cli client)
+add_executable(db_client src/client_main.cpp)
+target_link_libraries(db_client client)
 
 # Tests
 include(FetchContent)

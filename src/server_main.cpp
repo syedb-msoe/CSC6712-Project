@@ -18,14 +18,14 @@ void on_signal(int) {
 void usage(const char* prog) {
     std::cerr << "Usage: " << prog << " [options]\n"
               << "  -p, --port <port>        TCP port to listen on (default 5555)\n"
-              << "  -d, --db <path>          B-tree database file (default kvstore.db)\n"
+              << "  -d, --db <path>          B-tree database file (default default.db)\n"
               << "  -v, --verbose            enable verbose logging\n"
               << "  -h, --help               show this help\n";
 }
 
 int main(int argc, char* argv[]) {
     uint16_t port = 5555;
-    std::string db_path = "kvstore.db";
+    std::string db_path = "default.db";
     bool verbose = false;
 
     static struct option long_opts[] = {
