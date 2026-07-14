@@ -16,6 +16,8 @@
 #include <sstream>
 #include <stdexcept>
 
+static constexpr size_t MAX_LINE = 8192;
+
 bool set_nonblocking(int fd) {
     int flags = fcntl(fd, F_GETFL, 0);
     if (flags < 0) return false;
@@ -99,7 +101,14 @@ void BTreeServer::run() {
                 close(listen_fd_);
                 listen_fd_ = -1;
             }
-            for (auto& kv : conns_) kv.second->draining = true;
+            std::vector<int> idle_fds;
+            for (auto& kv : conns_) {
+                Connection& c = *kv.second;
+                c.draining = true;
+                if (c.out_buf.empty() && c.in_buf.find('\n') == std::string::npos)
+                    idle_fds.push_back(kv.first);
+            }
+            for (int fd : idle_fds) close_connection(fd);
             if (conns_.empty()) break;
         }
 
@@ -156,7 +165,7 @@ void BTreeServer::run() {
             if (FD_ISSET(fd, &rset)) handle_readable(*it->second);
         }
 
-        // Process commands
+        // Process a single command for each connection
         for (int fd : fds) {
             auto it = conns_.find(fd);
             process_one_command(*it->second);
@@ -166,7 +175,7 @@ void BTreeServer::run() {
         for (int fd : fds) {
             auto it = conns_.find(fd);
             Connection& c = *it->second;
-            if (!c.out_buf.empty() && (FD_ISSET(fd, &wset) || c.draining))
+            if (!c.out_buf.empty())
                 flush_writable(c);
         }
 
@@ -208,7 +217,7 @@ void BTreeServer::handle_readable(Connection& c) {
         return;
     }
     c.in_buf.append(buf, static_cast<size_t>(n));
-    if (c.in_buf.find('\n') == std::string::npos) {
+    if (c.in_buf.size() > MAX_LINE && c.in_buf.find('\n') == std::string::npos) {
         c.out_buf += "ERR PROTOCOL\n";
         c.in_buf.clear();
         c.draining = true;
