@@ -21,6 +21,7 @@ void usage(const char* prog) {
               << "  -d, --db <path>          B-tree database file (default default.db)\n"
               << "  -w, --wal <path>         write-ahead log file (default default.wal)\n"
               << "  -v, --verbose            enable verbose logging\n"
+              << "  -D, --debug              pause at critical points (implies verbose)\n"
               << "  -h, --help               show this help\n";
 }
 
@@ -29,23 +30,26 @@ int main(int argc, char* argv[]) {
     std::string db_path = "default.db";
     std::string wal_path = "default.wal";
     bool verbose = false;
+    bool debug = false;
 
     static struct option long_opts[] = {
         {"port", required_argument, nullptr, 'p'},
         {"db", required_argument, nullptr, 'd'},
         {"wal", required_argument, nullptr, 'w'},
         {"verbose", no_argument, nullptr, 'v'},
+        {"debug", no_argument, nullptr, 'D'},
         {"help", no_argument, nullptr, 'h'},
         {nullptr, 0, nullptr, 0},
     };
 
     int opt;
-    while ((opt = getopt_long(argc, argv, "p:d:w:vh", long_opts, nullptr)) != -1) {
+    while ((opt = getopt_long(argc, argv, "p:d:w:vDh", long_opts, nullptr)) != -1) {
         switch (opt) {
             case 'p': port = static_cast<uint16_t>(std::atoi(optarg)); break;
             case 'd': db_path = optarg; break;
             case 'w': wal_path = optarg; break;
             case 'v': verbose = true; break;
+            case 'D': debug = true; verbose = true; break;
             case 'h': usage(argv[0]); return 0;
             default: usage(argv[0]); return 1;
         }
@@ -62,6 +66,7 @@ int main(int argc, char* argv[]) {
     try {
         BTreeServer server(db_path, wal_path);
         server.set_verbose(verbose);
+        server.set_debug(debug);
 
         if (!server.listen_on(port)) {
             std::cerr << "Failed to listen on port " << port << std::endl;

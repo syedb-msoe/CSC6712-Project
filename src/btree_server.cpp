@@ -62,6 +62,18 @@ void BTreeServer::log(const std::string& msg) const {
     std::cerr << "[" << ts << "] " << msg << std::endl;
 }
 
+void BTreeServer::debug_pause(const std::string& point) {
+    if (!debug_) return;
+    std::cerr << "[DEBUG PAUSE] " << point << "\n"
+              << "  [enter]=continue  k=kill (simulate crash): " << std::flush;
+    std::string line;
+    if (!std::getline(std::cin, line)) return;
+    if (!line.empty() && (line[0] == 'k' || line[0] == 'K')) {
+        std::cerr << "[DEBUG] killing process to simulate a crash" << std::endl;
+        _exit(137);
+    }
+}
+
 bool BTreeServer::listen_on(uint16_t port) {
     listen_fd_ = socket(AF_INET, SOCK_STREAM, 0);
     if (listen_fd_ < 0) return false;
@@ -393,6 +405,8 @@ std::string BTreeServer::do_commit(Connection& c) {
     if (c.write_buf.empty()) return "ERR NO_WRITES";
 
     wal_.log_commit(c.txn_id);
+    debug_pause("COMMIT record written to WAL, before B-tree flush (txn=" +
+                std::to_string(c.txn_id) + ")");
     for (const auto& kv : c.write_buf) db_put(kv.first, kv.second);
 
     uint64_t id = c.txn_id;

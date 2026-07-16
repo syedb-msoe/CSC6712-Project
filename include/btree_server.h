@@ -22,6 +22,8 @@ public:
 
     void set_verbose(bool v) { verbose_ = v; }
 
+    void set_debug(bool d) { debug_ = d; }
+
     void set_txn_timeout_ms(long ms) { txn_timeout_ms_ = ms; }
 
     bool listen_on(uint16_t port);
@@ -59,6 +61,7 @@ private:
 
     bool shutting_down_ = false;
     bool verbose_ = false;
+    bool debug_ = false;
     long txn_timeout_ms_ = protocol::TXN_TIMEOUT_MS;
 
     void accept_new();
@@ -84,4 +87,5 @@ private:
     std::optional<std::string> db_put(const std::string& key, const std::string& value);
 
     void log(const std::string& msg) const;
+    void debug_pause(const std::string& point);
 };
