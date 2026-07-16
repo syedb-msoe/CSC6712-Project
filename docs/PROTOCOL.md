@@ -82,8 +82,15 @@ ABORT                       -> OK               (COMMIT would return ERR NO_WRIT
 
 Each transaction expires `TXN_TIMEOUT` (default 30s) after `BEGIN`. After
 expiry, every transactional operation and `COMMIT` returns `ERR TXN_EXPIRED`.
-The locks are held until the client issues `ABORT`, which always succeeds and
-releases them.
+The owning client should issue `ABORT` (which always succeeds) to release its
+locks.
+
+An expired transaction's locks are also reclaimed **lazily**: when another
+client attempts to `BEGIN`, `PUT`, `GET`, or `CONTAINS` a key held by an expired
+transaction, the server aborts the expired transaction (releasing all of its
+locks) and allows the request to proceed. This prevents an abandoned client from
+holding keys indefinitely. Once reclaimed, the original owner is no longer in a
+transaction, so its subsequent `ABORT` returns `ERR NO_TXN`.
 
 ## Durability & the write-ahead log (WAL)
 

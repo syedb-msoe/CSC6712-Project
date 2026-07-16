@@ -326,6 +326,7 @@ std::string BTreeServer::do_put(Connection& c, const protocol::Request& req) {
         return "OK " + prev;
     }
 
+    reap_expired_lock(key);
     if (key_locked_by_other(key, c.fd)) return "ERR KEY_LOCKED";
     auto old = db_put(key, value);
     return old ? "OK " + *old : "OK NULL";
@@ -348,6 +349,7 @@ std::string BTreeServer::do_get(Connection& c, const protocol::Request& req) {
         return disk ? "VALUE " + *disk : "NULL";
     }
 
+    reap_expired_lock(key);
     if (key_locked_by_other(key, c.fd)) return "ERR KEY_LOCKED";
     auto disk = db_get(key);
     return disk ? "VALUE " + *disk : "NULL";
@@ -368,6 +370,7 @@ std::string BTreeServer::do_contains(Connection& c, const protocol::Request& req
         return db_contains(key) ? "TRUE" : "FALSE";
     }
 
+    reap_expired_lock(key);
     if (key_locked_by_other(key, c.fd)) return "ERR KEY_LOCKED";
     return db_contains(key) ? "TRUE" : "FALSE";
 }
@@ -378,8 +381,10 @@ std::string BTreeServer::do_begin(Connection& c, const protocol::Request& req) {
     for (const std::string& k : req.args)
         if (!valid_token(k)) return "ERR PROTOCOL";
 
-    for (const std::string& k : req.args)
+    for (const std::string& k : req.args) {
+        reap_expired_lock(k);
         if (key_locked_by_other(k, c.fd)) return "ERR LOCK_FAILED";
+    }
 
     c.in_txn = true;
     c.txn_id = next_txn_id_++;
@@ -429,6 +434,23 @@ std::string BTreeServer::do_abort(Connection& c) {
 bool BTreeServer::key_locked_by_other(const std::string& key, int fd) const {
     auto it = locks_.find(key);
     return it != locks_.end() && it->second != fd;
+}
+
+void BTreeServer::reap_expired_lock(const std::string& key) {
+    auto lit = locks_.find(key);
+    if (lit == locks_.end()) return;
+    auto cit = conns_.find(lit->second);
+    if (cit == conns_.end()) return;
+
+    Connection& holder = *cit->second;
+    if (!holder.in_txn || !txn_expired(holder)) return;
+
+    uint64_t id = holder.txn_id;
+    wal_.log_abort(id);
+    end_transaction(holder);
+    if (active_txn_count_ == 0) wal_.checkpoint();
+    log("Reaped expired txn=" + std::to_string(id) +
+        " fd=" + std::to_string(holder.fd));
 }
 
 void BTreeServer::release_locks(Connection& c) {

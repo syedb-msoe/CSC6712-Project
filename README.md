@@ -45,7 +45,6 @@ There are two benchmark scripts that can be called, these can be called from the
     - `-c <number>` or `--clients <number>` will allow you to set the number  of client connections for benchmark (defaults to 500)
     - `-o <number>` or `--ops <number>` will allow you to set the number of read operations per client (defaults to 10000)
     - `-v` or `--versbose` will enable verbose logging
-    - `-D` or `--debug` will cause the server to pause before a commit and give the option to simulate a crash in order to test failure cases
     - example call: `./bench_connections -H 127.0.0.1 -p 8888 -c 100 -o 10000 > results_conn.csv`
         - will create 100 clients and split 10k read operations across them, results will be stored in a csv within the build folder
 
@@ -62,6 +61,7 @@ Protocol documentation can be found here: [docs/PROTOCOL.md](docs/PROTOCOL.md)
      - `-d <path>` or `--db <path>` will allow you to set the database file path (defaults to default.db)
      - `-w <path>` or `--wal <path>` will allow you to set the write ahead log path (defaults to default.wal)
      - `-v` or `--versbose` will enable verbose logging
+     - `-D` or `--debug` will cause the server to pause before a commit and give the option to simulate a crash in order to test failure cases
 - Clients can be spun up by running `./db_client` in the `build` folder
   - Takes in a variety of arguments
      - `-h` or `--help` will list all arguments

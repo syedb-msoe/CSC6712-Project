@@ -78,6 +78,7 @@ private:
     std::string do_commit(Connection& c);
     std::string do_abort(Connection& c);
     bool key_locked_by_other(const std::string& key, int fd) const;
+    void reap_expired_lock(const std::string& key);
     void release_locks(Connection& c);
     bool txn_expired(const Connection& c) const;
     void end_transaction(Connection& c);
