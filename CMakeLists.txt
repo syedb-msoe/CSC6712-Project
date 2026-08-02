@@ -13,11 +13,21 @@ target_include_directories(btree_server PUBLIC include)
 add_library(client src/client.cpp)
 target_include_directories(client PUBLIC include)
 
+add_library(murmur third_party/murmur/MurmurHash3.cpp)
+target_include_directories(murmur PUBLIC third_party/murmur)
+
+add_library(dist_client src/dist_client.cpp)
+target_link_libraries(dist_client PUBLIC client murmur)
+target_include_directories(dist_client PUBLIC include)
+
 add_executable(db_server src/server_main.cpp)
 target_link_libraries(db_server btree_server)
 
 add_executable(db_client src/client_main.cpp)
 target_link_libraries(db_client client)
+
+add_executable(dist_db_client src/dist_client_main.cpp)
+target_link_libraries(dist_db_client dist_client)
 
 # Tests
 include(FetchContent)
@@ -35,9 +45,18 @@ target_link_libraries(btree_test btree_storage GTest::gtest_main)
 add_executable(server_test tests/server_test.cpp)
 target_link_libraries(server_test btree_server client GTest::gtest_main)
 
+add_executable(rendezvous_test tests/rendezvous_test.cpp)
+target_link_libraries(rendezvous_test murmur GTest::gtest_main)
+target_include_directories(rendezvous_test PRIVATE include)
+
+add_executable(dist_client_test tests/dist_client_test.cpp)
+target_link_libraries(dist_client_test btree_server dist_client GTest::gtest_main)
+
 include(GoogleTest)
 gtest_discover_tests(btree_test)
 gtest_discover_tests(server_test)
+gtest_discover_tests(rendezvous_test)
+gtest_discover_tests(dist_client_test)
 
 add_executable(bench_read_write benchmarks/bench_read_write.cpp)
 target_link_libraries(bench_read_write btree_storage)

@@ -68,3 +68,28 @@ Protocol documentation can be found here: [docs/PROTOCOL.md](docs/PROTOCOL.md)
      - `-H` or `--host <ip>` will allow you to set the host ip (defaults to localhost)
      - `-p <number>` or `--port <number>` will allow you to set the port (defaults to 5555)
      - `-d` or `--debug` will return the raw requests/responses for debugging purposes
+
+## Running the Distributed Client
+Full documentation can be found here: [docs/DISTRIBUTED.md](docs/DISTRIBUTED.md)
+
+A cluster is just several `db_server` processes. Distribution (rendezvous
+hashing, quorum reads, and two-phase-commit writes) lives entirely in the
+client. Start `R` or more servers, then run `./dist_db_client` in the `build`
+folder with the replica-set size `R` first, followed by the server endpoints:
+
+```
+./db_server -p 25120 -d n0.db -w n0.wal &
+./db_server -p 25121 -d n1.db -w n1.wal &
+./db_server -p 25122 -d n2.db -w n2.wal &
+./db_server -p 25123 -d n2.db -w n2.wal &
+./dist_db_client 3 127.0.0.1:25120 127.0.0.1:25121 127.0.0.1:25122 127.0.0.1:25123
+```
+
+- The first positional argument is `R` (replica-set size); the rest are
+  `host:port` endpoints (at least `R` of them).
+- Optional arguments:
+  - `--qr <number>` read quorum (defaults to `R - Qw + 1`)
+  - `--qw <number>` write quorum (defaults to `floor(R/2) + 1`)
+  - `--timeout <ms>` per-request socket timeout (defaults to 2000)
+- Reads commands from stdin, one per line: `PUT <key> <value>`, `GET <key>`,
+  `INFO`, `QUIT`.

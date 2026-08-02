@@ -16,6 +16,8 @@ public:
     void disconnect();
     bool connected() const { return fd_ >= 0; }
 
+    void set_timeout_ms(int ms);
+
     std::string command(const std::string& line);
 
     std::string put(const std::string& key, const std::string& value);
@@ -29,7 +31,9 @@ public:
 private:
     int fd_ = -1;
     std::string in_buf_;
+    int timeout_ms_ = 0;
 
+    bool wait_ready(short events);
     bool send_all(const std::string& data);
     bool read_line(std::string& out);
 };

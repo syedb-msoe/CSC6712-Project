@@ -1,11 +1,14 @@
 #include "client.h"
 
 #include <arpa/inet.h>
+#include <fcntl.h>
 #include <netdb.h>
 #include <netinet/in.h>
+#include <poll.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include <cerrno>
 #include <cstring>
 #include <sstream>
 
@@ -36,8 +39,12 @@ bool Client::connect(const std::string& host, uint16_t port) {
         fd_ = -1;
         return false;
     }
+    int flags = fcntl(fd_, F_GETFL, 0);
+    if (flags >= 0) fcntl(fd_, F_SETFL, flags | O_NONBLOCK);
     return true;
 }
+
+void Client::set_timeout_ms(int ms) { timeout_ms_ = ms; }
 
 void Client::disconnect() {
     if (fd_ >= 0) {
@@ -47,12 +54,33 @@ void Client::disconnect() {
     in_buf_.clear();
 }
 
+bool Client::wait_ready(short events) {
+    pollfd pfd{};
+    pfd.fd = fd_;
+    pfd.events = events;
+    int timeout = timeout_ms_ > 0 ? timeout_ms_ : -1;
+    for (;;) {
+        int r = poll(&pfd, 1, timeout);
+        if (r > 0) return true;
+        if (r == 0) return false;
+        if (errno == EINTR) continue;
+        return false;
+    }
+}
+
 bool Client::send_all(const std::string& data) {
     size_t sent = 0;
     while (sent < data.size()) {
-        ssize_t n = send(fd_, data.data() + sent, data.size() - sent, 0);
-        if (n <= 0) return false;
-        sent += static_cast<size_t>(n);
+        ssize_t n = send(fd_, data.data() + sent, data.size() - sent, MSG_NOSIGNAL);
+        if (n > 0) {
+            sent += static_cast<size_t>(n);
+            continue;
+        }
+        if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+            if (!wait_ready(POLLOUT)) return false;
+            continue;
+        }
+        return false;
     }
     return true;
 }
@@ -62,9 +90,17 @@ bool Client::read_line(std::string& out) {
     while (nl == std::string::npos) {
         char buf[4096];
         ssize_t n = recv(fd_, buf, sizeof(buf), 0);
-        if (n <= 0) return false;
-        in_buf_.append(buf, static_cast<size_t>(n));
-        nl = in_buf_.find('\n');
+        if (n > 0) {
+            in_buf_.append(buf, static_cast<size_t>(n));
+            nl = in_buf_.find('\n');
+            continue;
+        }
+        if (n == 0) return false;
+        if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            if (!wait_ready(POLLIN)) return false;
+            continue;
+        }
+        return false;
     }
     out = in_buf_.substr(0, nl);
     if (!out.empty() && out.back() == '\r') out.pop_back();
