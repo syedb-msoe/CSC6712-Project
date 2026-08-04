@@ -52,6 +52,9 @@ BTreeServer::~BTreeServer() {
 
 void BTreeServer::request_shutdown() {
     shutting_down_ = true;
+    char b = 1;
+    ssize_t n = write(pipe_fds_[1], &b, 1);
+    (void)n;
 }
 
 void BTreeServer::log(const std::string& msg) const {
