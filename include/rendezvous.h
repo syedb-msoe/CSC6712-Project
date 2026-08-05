@@ -16,7 +16,7 @@ public:
     const std::vector<std::string>& servers() const { return servers_; }
     size_t size() const { return servers_.size(); }
 
-    std::vector<size_t> replica_set(const std::string& key, size_t r) const {
+    std::vector<size_t> replica_set(const std::string& key, size_t replica_size) const {
         std::vector<std::pair<uint32_t, size_t>> weighted;
         weighted.reserve(servers_.size());
         for (size_t i = 0; i < servers_.size(); ++i) {
@@ -30,10 +30,10 @@ public:
                       return servers_[a.second] < servers_[b.second];
                   });
 
-        if (r > weighted.size()) r = weighted.size();
+        if (replica_size > weighted.size()) replica_size = weighted.size();
         std::vector<size_t> out;
-        out.reserve(r);
-        for (size_t i = 0; i < r; ++i) out.push_back(weighted[i].second);
+        out.reserve(replica_size);
+        for (size_t i = 0; i < replica_size; ++i) out.push_back(weighted[i].second);
         return out;
     }
 
