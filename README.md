@@ -19,14 +19,14 @@ Tests can be ran by calling the following after build from the root project dire
 test database files are stored in your home directory under the `test_data` folder
 
 ## Running Benchmarks
-There are two benchmark scripts that can be called, these can be called from the build folder
+There are benchmark scripts that can be called from the build folder
 - bench_read_write
   - Does 3 sets of runs for 100, 1000, 10000, 100000, 1000000
   - prints the results
     - alternativley you can pass in a filename as an argument and it will log the results
     - example: `./bench_read_write > results_rw.csv`
     - file will be generated in the build folder
-- bench_read_write
+- bench_cache
   - takes in additional arguments
     - <setup|read> <num_trials>
     - example call: `./bench_cache setup 5`
@@ -38,6 +38,7 @@ There are two benchmark scripts that can be called, these can be called from the
 - bench_connections
   - Tests read operation timing with variable number of clients to test concurrency. 20ms delay between requests.
   - you can call `bench_load --db <path> --count 1000000` which is a helper that creates a sample database with 1 million keys for this benchmark
+  - Use this after starting enough `db_server` processes to satisfy the largest R value.
   - you will need to spin up a server pointing at whichever database file you create for this benchmark (see running TCP server/client instructions below)
   - takes in additional optional arguments
     - `-H` or `--host <ip>` will allow you to set the host ip (defaults to localhost)
@@ -47,6 +48,11 @@ There are two benchmark scripts that can be called, these can be called from the
     - `-v` or `--versbose` will enable verbose logging
     - example call: `./bench_connections -H 127.0.0.1 -p 8888 -c 100 -o 10000 > results_conn.csv`
         - will create 100 clients and split 10k read operations across them, results will be stored in a csv within the build folder
+- bench_distributed
+  - Benchmarks distributed client quorum read and write scaling.
+  - Scenario 1: single-client read/write latency for varying R, Qr, and Qw.
+  - Scenario 2: read throughput scaling across multiple client connections while varying Qr.
+  - Example call: `./bench_distributed 127.0.0.1:25120 127.0.0.1:25121 127.0.0.1:25122 --r-values 3,4,5`
 
 
 benchmark database files are stored in your home directory under the `bench_data` folder
