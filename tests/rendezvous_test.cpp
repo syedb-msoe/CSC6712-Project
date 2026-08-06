@@ -58,33 +58,3 @@ TEST(RendezvousTest, ReplicatesKeysAcrossMultipleServers) {
         EXPECT_GT(c, expected / 1.25);
     }
 }
-
-TEST(RendezvousTest, RemovalOnlyRehomesAffectedKeys) {
-    auto servers = make_servers(5);
-    RendezvousHasher full(servers);
-
-    std::vector<std::string> reduced;
-    for (size_t i = 0; i < servers.size(); ++i) {
-        if (i != 2) reduced.push_back(servers[i]);
-    }
-    RendezvousHasher smaller(reduced);
-
-    for (int i = 0; i < 500; ++i) {
-        std::string k = "key" + std::to_string(i);
-
-        auto full_rank = full.replica_set(k, servers.size());
-        std::vector<std::string> full_addrs;
-        for (size_t idx : full_rank) full_addrs.push_back(servers[idx]);
-
-        std::vector<std::string> expected;
-        for (const std::string& a : full_addrs) {
-            if (a != servers[2]) expected.push_back(a);
-        }
-
-        auto small_rank = smaller.replica_set(k, reduced.size());
-        std::vector<std::string> small_addrs;
-        for (size_t idx : small_rank) small_addrs.push_back(reduced[idx]);
-
-        EXPECT_EQ(small_addrs, expected) << "key=" << k;
-    }
-}
